@@ -8,6 +8,15 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
+add_action('wp_enqueue_scripts', function() {
+   
+    wp_enqueue_style('bookcss', plugin_dir_url(__FILE__) . 'book.css');
+    wp_enqueue_script('book-js', plugin_dir_url(__FILE__) . 'book.js', ['jquery'], null, true);
+    wp_localize_script('book-js', 'book_ajax', ['ajaxurl' => admin_url('admin-ajax.php')]);
+   
+});
+
+
 // Register CPT and Taxonomies
 add_action('init', function() {
     register_post_type('book', [
@@ -93,33 +102,12 @@ add_shortcode('book_info', function($atts) {
             'type' => 'NUMERIC',
         ]]
     ]);
+    
     if ($query->have_posts()) {
       
         echo '<div class="book-info">';
-        echo '<div id="book-filter-container">';
-        while ($query->have_posts()) {
-            $query->the_post();
-            $year = get_post_meta(get_the_ID(), '_publication_year', true);
-            $rating = get_post_meta(get_the_ID(), '_book_rating', true);
-            $authors = wp_get_post_terms(get_the_ID(), 'author', ['fields' => 'names']);
-            $genres = wp_get_post_terms(get_the_ID(), 'genre', ['fields' => 'all']);
-            echo '<div class="book">';
-            echo '<h3>' . get_the_title() . '</h3>';
-            echo '<p>Author: ' . implode(', ', $authors) . '</p>';
-            echo '<p>Genre: ';
-            foreach ($genres as $genre) {
-                echo '<a href="#" class="genre-link" data-genre="' . esc_attr($genre->slug) . '">' . esc_html($genre->name) . '</a> ';
-            }
-            echo '</p>';
-            echo '<p>Rating: <span class="book-rating" data-id="'.get_the_ID().'">' . esc_html($rating ?: '0') . '</span> / 5</p>';
-            echo '<select class="rate-book" data-id="'.get_the_ID().'"><option>Rate</option>';
-            for ($i = 1; $i <= 5; $i++) echo "<option value='$i'>$i</option>";
-            echo '</select>';
-            echo '<p>Published: ' . esc_html($year) . '</p>';
-            echo '</div>';
-        }
-        echo '</div>';
-        echo '<div id="books">';
+      
+          echo '<div id="books">';
         $all_genres = get_terms(['taxonomy' => 'genre', 'hide_empty' => false]);
         if (!empty($all_genres)) {
             echo '<div id="genre-filters">';
@@ -131,71 +119,86 @@ add_shortcode('book_info', function($atts) {
 
         echo '</div><select id="rating-filter"><option value="">All Ratings</option><option value="5">5</option><option value="4">4+</option><option value="3">3+</option><option value="2">2+</option><option value="1">1+</option></select>';
         echo '</div>';
+        echo '<div id="book-filter-container">';
+        echo '</div>';
+          echo '<div id="original-book-list">';
+        while ($query->have_posts()) {
+            $query->the_post();
+            $year = get_post_meta(get_the_ID(), '_publication_year', true);
+            $rating = get_post_meta(get_the_ID(), '_book_rating', true);
+            $authors = wp_get_post_terms(get_the_ID(), 'author', ['fields' => 'names']);
+            $genres = wp_get_post_terms(get_the_ID(), 'genre', ['fields' => 'all']);
+           
+            echo '<div class="book">';
+            echo '<h3>' . get_the_title() . '</h3>';
+            echo '<p>Author: ' . implode(', ', $authors) . '</p>';
+            echo '<p>Genre: ';
+            foreach ($genres as $genre) {
+                    $genre_link = get_term_link($genre);
+                    if (!is_wp_error($genre_link)) {
+                        echo '<a href="' . esc_url($genre_link) . '" class="genre-link" data-genre="' . esc_attr($genre->slug) . '">' . esc_html($genre->name) . '</a> ';
+                    }
+                }
+            echo '</p>';
+            echo '<p>Rating: <span class="book-rating" data-id="'.get_the_ID().'">' . esc_html($rating ?: '0') . '</span> / 5</p>';
+            echo '<select class="rate-book" data-id="'.get_the_ID().'"><option>Rate</option>';
+            for ($i = 1; $i <= 5; $i++) echo "<option value='$i'>$i</option>";
+            echo '</select>';
+            echo '<p>Published: ' . esc_html($year) . '</p>';
+            echo '</div>';
+        }
+        echo '</div>';
+        echo '</div>';
+
+      
     }
     wp_reset_postdata();
     return ob_get_clean();
 });
 
-// Enqueue only when shortcode used
-add_action('wp_enqueue_scripts', function() {
-    global $post;
-    if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'book_info')) {
-        wp_enqueue_style('book-css', plugin_dir_url(__FILE__) . 'book.css');
-        wp_enqueue_script('book-js', plugin_dir_url(__FILE__) . 'book.js', ['jquery'], null, true);
-        wp_localize_script('book-js', 'book_ajax', ['ajaxurl' => admin_url('admin-ajax.php')]);
-    }
-});
 
 // AJAX Load by Genre
-// add_action('wp_ajax_filter_books_by_genre', 'cbp_filter_books_by_genre');
-// add_action('wp_ajax_nopriv_filter_books_by_genre', 'cbp_filter_books_by_genre');
-// function cbp_filter_books_by_genre() {
-//     $genre = sanitize_text_field($_POST['genre']);
-//     $args = ['post_type' => 'book', 'tax_query' => [[
-//         'taxonomy' => 'genre', 'field' => 'slug', 'terms' => $genre
-//     ]]];
-//     $query = new WP_Query($args);
-//     if ($query->have_posts()) {
-//         while ($query->have_posts()) {
-//             $query->the_post();
-//             echo '<p>' . get_the_title() . '</p>';
-//         }
-//     } else {
-//         echo '<p>No books found.</p>';
-//     }
-//     wp_die();
-// }
+add_action('wp_ajax_filter_books_by_genre', 'cbp_filter_books_by_genre');
+add_action('wp_ajax_nopriv_filter_books_by_genre', 'cbp_filter_books_by_genre');
 
-// AJAX Save Rating
-add_action('wp_ajax_rate_book', function() {
-    $book_id = intval($_POST['book_id']);
-    $rating = intval($_POST['rating']);
-    if ($book_id && $rating >= 1 && $rating <= 5) {
-        update_post_meta($book_id, '_book_rating', $rating);
-        echo $rating;
-    }
-    wp_die();
-});
+function cbp_filter_books_by_genre() {
+    $genre = isset($_POST['genre']) ? sanitize_text_field($_POST['genre']) : '';
 
-// AJAX Filter by Rating
-add_action('wp_ajax_filter_books_by_rating', 'cbp_filter_books_by_rating');
-add_action('wp_ajax_nopriv_filter_books_by_rating', 'cbp_filter_books_by_rating');
-function cbp_filter_books_by_rating() {
-    $rating = intval($_POST['rating']);
-    $args = ['post_type' => 'book'];
-    if ($rating) {
-        $args['meta_query'] = [[
-            'key' => '_book_rating',
-            'value' => $rating,
-            'compare' => '>=',
-            'type' => 'NUMERIC'
-        ]];
-    }
-    $query = new WP_Query($args);
+ 
+
+      $args = [
+    'post_type' => 'book',
+    'posts_per_page' => -1,
+    'tax_query' => [[
+      'taxonomy' => 'genre',
+      'field' => 'slug',
+      'terms' => $genre
+    ]]
+  ];
+   $query = new WP_Query($args);
+   
     if ($query->have_posts()) {
         while ($query->have_posts()) {
             $query->the_post();
-            echo '<p>' . get_the_title() . '</p>';
+            $year = get_post_meta(get_the_ID(), '_publication_year', true);
+            $rating = get_post_meta(get_the_ID(), '_book_rating', true);
+            $authors = wp_get_post_terms(get_the_ID(), 'author', ['fields' => 'names']);
+            $genres = wp_get_post_terms(get_the_ID(), 'genre', ['fields' => 'all']);
+             echo '<div class="book">';
+            echo '<h3>' . get_the_title() . '</h3>';
+            echo '<p>Author: ' . implode(', ', $authors) . '</p>';
+            echo '<p>Genre: ';
+            foreach ($genres as $genre) {
+                $genre_link = get_term_link($genre);
+                if (!is_wp_error($genre_link)) {
+                    echo '<a href="' . esc_url($genre_link) . '" class="genre-link" data-genre="' . esc_attr($genre->slug) . '">' . esc_html($genre->name) . '</a> ';
+                }
+            }
+            echo '</p>';
+            echo '<p>Rating: ' . esc_html($rating ?: '0') . ' / 5</p>';
+            echo '<p>Published: ' . esc_html($year) . '</p>';
+            echo '</div>';
+
         }
     } else {
         echo '<p>No books found.</p>';
@@ -203,59 +206,72 @@ function cbp_filter_books_by_rating() {
     wp_die();
 }
 
+// AJAX Save Rating
+add_action('wp_ajax_rate_book', 'rate_book_handler');
+add_action('wp_ajax_nopriv_rate_book', 'rate_book_handler');
+
+function rate_book_handler() {
+    $book_id = intval($_POST['book_id']);
+    $rating  = intval($_POST['rating']);
+    $post_id = $book_id;
+
+    if ($book_id && $rating >= 1 && $rating <= 5) {
+        update_post_meta($post_id, '_book_rating', $rating);
+        echo $rating;
+    } else {
+        echo 'Invalid';
+    }
+    wp_die();
+}
 
 
-add_action('wp_ajax_filter_books_by_genre', 'filter_books_by_genre_callback');
-add_action('wp_ajax_nopriv_filter_books_by_genre', 'filter_books_by_genre_callback');
 
-function filter_books_by_genre_callback() {
-    $genre_slug = sanitize_text_field($_POST['genre_slug']);
+add_action('wp_ajax_filter_books_by_rating', 'filter_books_by_rating');
+add_action('wp_ajax_nopriv_filter_books_by_rating', 'filter_books_by_rating');
 
-    $args = [
+function filter_books_by_rating() {
+    $rating = intval($_POST['rating']);
+
+    $query = new WP_Query([
         'post_type' => 'book',
-        'tax_query' => [[
-            'taxonomy' => 'genre',
-            'field'    => 'slug',
-            'terms'    => $genre_slug,
-        ]]
-    ];
-
-    $query = new WP_Query($args);
+        'meta_query' => [
+            [
+                'key' => '_book_rating',
+                'value' => $rating,
+                'compare' => '>=',
+                'type' => 'NUMERIC',
+            ]
+        ]
+    ]);
 
     if ($query->have_posts()) {
-        echo '<div class="book-info">';
         while ($query->have_posts()) {
             $query->the_post();
-
-            $post_id = get_the_ID();
-            $year    = get_post_meta($post_id, '_publication_year', true);
-            $rating  = get_post_meta($post_id, '_book_rating', true);
-
-            $authors = wp_get_post_terms($post_id, 'author', ['fields' => 'names']);
-            $genres  = wp_get_post_terms($post_id, 'genre', ['fields' => 'all']);
+            $year = get_post_meta(get_the_ID(), '_publication_year', true);
+            $rating = get_post_meta(get_the_ID(), '_book_rating', true);
+            $authors = wp_get_post_terms(get_the_ID(), 'author', ['fields' => 'names']);
+            $genres = wp_get_post_terms(get_the_ID(), 'genre', ['fields' => 'all']);
 
             echo '<div class="book">';
             echo '<h3>' . get_the_title() . '</h3>';
             echo '<p>Author: ' . implode(', ', $authors) . '</p>';
-
             echo '<p>Genre: ';
             foreach ($genres as $genre) {
-                echo '<a href="#" class="genre-filter-btn" data-genre="' . esc_attr($genre->slug) . '">' . esc_html($genre->name) . '</a> ';
+                $genre_link = get_term_link($genre);
+                if (!is_wp_error($genre_link)) {
+                    echo '<a href="' . esc_url($genre_link) . '" class="genre-link" data-genre="' . esc_attr($genre->slug) . '">' . esc_html($genre->name) . '</a> ';
+                }
             }
             echo '</p>';
-
-            echo '<p>Rating: <span class="book-rating" data-id="' . $post_id . '">' . esc_html($rating ?: '0') . '</span> / 5</p>';
-            echo '<select class="rate-book" data-id="' . $post_id . '"><option>Rate</option>';
-            for ($i = 1; $i <= 5; $i++) echo "<option value='$i'>$i</option>";
-            echo '</select>';
-
+            echo '<p>Rating: ' . esc_html($rating ?: '0') . ' / 5</p>';
             echo '<p>Published: ' . esc_html($year) . '</p>';
             echo '</div>';
         }
-        echo '</div>';
     } else {
-        echo '<p>No books found in this genre.</p>';
+        echo '<p>No books found for this rating.</p>';
     }
 
+    wp_reset_postdata();
     wp_die();
 }
+
