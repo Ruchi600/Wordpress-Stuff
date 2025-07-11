@@ -1,0 +1,26 @@
+✅ Basic steps to create a custom REST API endpoint
+
+1️⃣ Register your custom endpoint using register_rest_route.
+2️⃣ Write a callback function to handle the request.
+3️⃣ Call it via HTTP (GET or POST).
+
+📌 Example: Create GET /wp-json/custom/v1/hello
+     👉 Add this to your functions.php or a custom plugin:
+       
+add_action('rest_api_init', function () {
+    register_rest_route('custom/v1', '/hello', array(
+        'methods'  => 'GET',
+        'callback' => 'custom_hello_endpoint',
+    ));
+});
+
+function custom_hello_endpoint($request) {
+    return rest_ensure_response(array(
+        'message' => 'Hello Ruchi! This is your custom API.',
+        'time' => current_time('mysql'),
+    ));
+}
+
+
+  
+
