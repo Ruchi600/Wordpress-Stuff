@@ -1,15 +1,16 @@
 # Wordpress-Stuff
 
-Create Book PLugin in whcih add books , retrive last 5 years bokk and user can instal update the rating also filter in rating.
+Create Book PLugin in which add books,author,publish year,categories/tag and  retrive last 5 years publised book and user can add the rating from frontend. user can filter the books as per categories and filter as rating.
 
 we use custom post type, custom texnomies, custom meta box, admin ajax.
 
 
-
 Custom post types
 
-To register a custom post type, use the WordPress register_post_type function.
-function takes two parameters: the name of the custom post type, and an array of arguments that define the custom post type.
+To register a custom post type, use the WordPress funtion register_post_type function.
+function takes two parameters: 
+   1. name of the custom post type,
+   2. Array of arguments that define the custom post type.
 
 example of creating the arguments array, and calling the register_post_type
 
@@ -170,6 +171,43 @@ Tells WordPress to find posts where the meta value is **in this list**. It’s l
 | `the_post()`          | Loads the next post’s data into WordPress functions |
 | `wp_reset_postdata()` | Safely ends the loop and restores global context Restores 
                           the original global $post variable (important when using custom queries).   |
+
+
+
+        Difference between have_post() / the_post() / get_posts() / get_post
+
+
+        have_post()  =>  Checks if there are more posts to loop through.
+                          Returns true or false.
+                          if(have_post()){
+                          while (have_post()){
+                             the_post();
+                          
+                           }
+                          }
+
+                     | Function       | What it does                                 | Usage                                 |
+| -------------- | -------------------------------------------- | ------------------------------------- |
+| `have_posts()` | Checks if there are posts left in the loop   | Used in `while` loops                 |
+| `the_post()`   | Moves to next post in the loop, sets globals | Used *inside* the loop                |
+| `get_posts()`  | Get an **array** of posts in a custom query  | Good for custom loops                 |
+| `get_post()`   | Get a **single post** by ID                  | Useful for one post outside main loop |
+
+
+
+| Use case               | Function                         |
+| ---------------------- | -------------------------------- |
+| Parent theme file path | `get_template_directory()`       |
+| Parent theme URL       | `get_template_directory_uri()`   |
+| Child theme file path  | `get_stylesheet_directory()`     |
+| Child theme URL        | `get_stylesheet_directory_uri()` |
+| Content directory path | `WP_CONTENT_DIR`                 |
+| Content directory URL  | `WP_CONTENT_URL`                 |
+| Plugins directory path | `WP_PLUGIN_DIR`                  |
+| Plugins directory URL  | `WP_PLUGIN_URL`                  |
+| Uploads path & URL     | `wp_get_upload_dir()`            |
+
+
 
 
 wp_enqueue_scripts
